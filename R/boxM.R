@@ -38,11 +38,30 @@ boxM.default <- function(Y, group, ...)
    logdet <- log(unlist(lapply(mats, det)))
    minus2logM <- sum(dfs) * log(det(pooled)) - sum(logdet * dfs)
    sum1 <- sum(1 / dfs) 
-   Co <- (((2 * p^2) + (3 * p) - 1) / (6 * (p + 1) *
-     (nlev - 1))) * (sum1 - (1 / sum(dfs)))
-   X2 <- minus2logM * (1 - Co)
+   sum2 <- sum((1 / dfs)^2)
+   A1 <- (((2 * p^2) + (3 * p) - 1) / (6 * (p + 1) *
+                                         (nlev - 1))) * (sum1 - (1 / sum(dfs)))
    dfchi <- (choose(p, 2) + p) * (nlev - 1)
-   pval <- pchisq(X2, dfchi, lower.tail = FALSE)
+   ## if group sample sizes are small, use F test
+   if ( any(dfs<15) ){
+     A2 <- (p-1) * (p+2) / (6 * (nlev - 1) ) * (sum2 - (1 / sum(dfs)^2))
+     if (A2-A1^2 > 0){
+       dfF = (dfchi + 2)/(A2-A1^2)
+       b = dfchi/(1-A1-dfchi/dfF)
+       X2 <- minus2logM / b
+       pval <- pf(X2, dfchi, dfF, lower.tail=FALSE)
+     } else if (A2-A1^2<0){
+       dfF = (dfchi + 2)/(A1^2-A2)
+       b = dfF / (1-A1+2/dfF)
+       X2 <- dfF * minus2logM / (dfchi * (b - minus2logM))
+       pval <- pf(X2, dfchi, dfF, lower.tail=FALSE)
+     } else{
+       warning("error")
+     }
+   } else{
+     X2 <- minus2logM * (1 - A1)
+     pval <- pchisq(X2, dfchi, lower.tail = FALSE)
+   }
 
    means <- aggregate(Y, list(group), mean)
    rn <- as.character(means[,1])
